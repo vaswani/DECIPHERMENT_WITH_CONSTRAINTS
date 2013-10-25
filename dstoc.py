@@ -24,7 +24,9 @@ def dykstra(X, tol):
 def proj_row(X):
     N = X.shape[0]
     e = np.mat(np.ones((N, 1)))
-    X = X - (X * e - e) * e.T / N
+    #print e.shape
+    #print X.shape
+    X = X - (X.dot(e) - e) * e.T / N
     return X
 
 

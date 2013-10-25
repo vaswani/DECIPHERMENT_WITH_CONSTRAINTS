@@ -70,3 +70,37 @@ def	getTagBigramTypes(tagged_sequence) :
 			tag_bigram_types[tag_bigram] = 1
 	print 'The number of tag bigram types in the viterbi tag sequence were %d'%len(tag_bigram_types.keys())
 
+def assignProbs(x,probabilities,parameter_to_index) :
+  for next_tag in parameter_to_index :
+      parameter_number =   parameter_to_index[next_tag]
+      probability = x[parameter_number]
+      probabilities[next_tag] = probability
+
+def assignProbsMatrix(x,probabilities,parameter_to_index) :
+  #print 'the assigned probabilities are '
+  #print x
+  #raw_input()
+  #for plain_letter in parameter_to_index:
+  for i,k in enumerate(range(65, 91)):
+    plain_letter = chr(k)
+    for cipher_letter in parameter_to_index[plain_letter]:
+      parameter_number = parameter_to_index[plain_letter][cipher_letter]
+      probability = x[i][parameter_number]
+      probabilities[plain_letter][cipher_letter] = probability
+
+def createRandomPoint(probabilities_channel) :
+  for tag in probabilities_channel.keys() :
+    if len(probabilities_channel[tag].keys()) == 1 :
+      for word in probabilities_channel[tag].keys(): 
+        probabilities_channel[tag][word] = 1
+    else :
+      random_number_dict= {}
+      random_number_sum = 0
+      for word in probabilities_channel[tag].keys() :
+        random_number = random.randint(1,100000)
+        random_number_sum += random_number
+        random_number_dict[word] = random_number
+      for word in probabilities_channel[tag].keys() :
+        probabilities_channel[tag][word] = float(random_number_dict[word])/random_number_sum
+
+

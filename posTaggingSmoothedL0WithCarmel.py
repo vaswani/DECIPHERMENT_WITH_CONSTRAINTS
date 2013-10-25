@@ -43,13 +43,15 @@ def createParametersForScaling(probabilities,parameter_to_index) :
   #constraint_parameters.clear()
   #so, I have to take the current probabilities and then create the constraint parameters and the initial parameters
   #you should also calculate the current number of zero parameters and pass it to the argmax function
-  for tag in probabilities :
+  #for tag in probabilities :
+  for k in range(65, 91):
+    plain_letter = chr(k)
     rowwise_parameter_to_index = {}
-    paramter_counter = 0
-    for next_tag in probabilities[tag]:
-      rowwise_parameter_to_index[next_tag] = paramter_counter
-      paramter_counter += 1
-    parameter_to_index[tag] = rowwise_parameter_to_index
+    paramteter_counter = 0
+    for cipher_letter in probabilities[plain_letter]:
+      rowwise_parameter_to_index[cipher_letter] = paramteter_counter
+      paramteter_counter += 1
+    parameter_to_index[plain_letter] = rowwise_parameter_to_index
   #print 'after indexing, the paramter to index is '
   #print parameter_to_index
 
@@ -117,6 +119,7 @@ def main() :
   #dictionary = emMethods.createDictionary('complete.dict.new-formatted')#.small')
   #word_lines= emMethods.readWordLines('test.words.new-formatted')
   cipher_letter_dict = emMethods.getUniqCipherLetters('cipher.data.noq')
+  del cipher_letter_dict['_']
   #word_list_five = emMethods.readWordList('TEXT.3.linear')
   #plaintext = map(chr, range(97, 123))
   plaintext = []
@@ -125,6 +128,8 @@ def main() :
   print plaintext
   print 'the number of unique cipher letter is %d'%len(cipher_letter_dict.keys())
   print cipher_letter_dict
+  num_cipher_letters = len(cipher_letter_dict.keys()) 
+  num_plain_letters = 26
   #gold_tag_sequence = emMethods.readWordList('test.tags.new-formatted.linear')
      
   free_parameters_channel = {}
@@ -193,48 +198,15 @@ def main() :
 
     print 'The accuracy was %s and the objective function value was %s'%(str(accuracy),str(evaluateObjectiveFuncValue(total_corpus_probability,probabilities_language,probabilities_channel,alpha,beta)))
       
+    #pdgOnlyRowConstraints(probabilities_channel,fractional_counts_channel,parameter_to_index,num_pgd_iterations,alpha,beta,eta,lower_bound,armijo_beta,armijo_sigma,slack_option)
+    pdgRowAndColumnConstraints(probabilities_channel,fractional_counts_channel,parameter_to_index,num_pgd_iterations,alpha,beta,eta,lower_bound,armijo_beta,armijo_sigma,num_plain_letters,num_cipher_letters)
 
-    #first optimizing the tag bigrams and doing it per parameter
-    for tag in probabilities_channel :
-      print 'we are starting a new tag'
-      if len(probabilities_channel[tag]) == 1 :
-        continue
-      print 'we are currently optimizing for tag', tag
-      #current_initial_parameter_args = initial_parameter_args[tag]
-      current_optimization_tag = tag
-      parameter_counter = len(probabilities_channel[tag].keys())      
-      current_fractional_counts = fractional_counts_channel
-      #optimizing per constraint
-
-      x=zeros(parameter_counter)
-      expected_counts=zeros(parameter_counter)
-      expected_counts_sum = 0.
-      for next_tag in probabilities_channel[current_optimization_tag].keys() :
-        parameter_number = parameter_to_index[current_optimization_tag][next_tag]
-        x[parameter_number] = probabilities_channel[current_optimization_tag][next_tag]  
-        expected_counts[parameter_number] = current_fractional_counts[current_optimization_tag][next_tag]
-        expected_counts_sum +=  current_fractional_counts[current_optimization_tag][next_tag]
-        
-      print 'expected counts sum was ',expected_counts_sum
-      #print parameter_to_index
-
-      #current_eta = eta_0 #/sqrt(num_iterations+1)
-      print 'Doing projected gradient descent'
-      new_probabilities = projectedGradientDescentWithArmijoRule(x = x,expected_counts = expected_counts,num_pgd_iterations = num_pgd_iterations,eta = eta,lower_bound = lower_bound,armijo_beta = armijo_beta,armijo_sigma = armijo_sigma,alpha = alpha,beta = beta,slack_option = slack_option, parameter_counter = parameter_counter)
-      print 'finished projected gradient descent'
-      #new_probabilities = newtonProjectedGradientDescentWithArmijoRule(x,num_pgd_iterations,eta,lower_bound,armijo_beta,armijo_sigma)
-      #print new_probabilities
-      #raw_input()
-      print 'we are replacing channel probs'
-      assignProbs(new_probabilities,probabilities_channel[current_optimization_tag],parameter_to_index[current_optimization_tag])
-  
-      
     #now writing the fsa back again
     emMethods.writeFst('cipher.fst',probabilities_channel)
 
 
-    print 'checking the initial zeros in channel model'
-    checkZeros(probabilities_channel)
+    #print 'checking the initial zeros in channel model'
+    #checkZeros(probabilities_channel)
   
     fractional_counts_channel = copy.deepcopy(free_parameters_channel)
     final_probabilities_channel = copy.deepcopy(probabilities_channel)
@@ -242,30 +214,6 @@ def main() :
 
   elapsed_time = time.clock() - start_time
   print 'the elapsed time was ',elapsed_time
-
-
-
-
-def assignProbs(x,probabilities,parameter_to_index) :
-  for next_tag in parameter_to_index :
-      parameter_number =   parameter_to_index[next_tag]
-      probability = x[parameter_number]
-      probabilities[next_tag] = probability
-
-def createRandomPoint(probabilities_channel) :
-  for tag in probabilities_channel.keys() :
-    if len(probabilities_channel[tag].keys()) == 1 :
-      for word in probabilities_channel[tag].keys(): 
-        probabilities_channel[tag][word] = 1
-    else :
-      random_number_dict= {}
-      random_number_sum = 0
-      for word in probabilities_channel[tag].keys() :
-        random_number = random.randint(1,100000)
-        random_number_sum += random_number
-        random_number_dict[word] = random_number
-      for word in probabilities_channel[tag].keys() :
-        probabilities_channel[tag][word] = float(random_number_dict[word])/random_number_sum
 
 
 if __name__ == "__main__" :
