@@ -294,7 +294,19 @@ def pdgRowAndColumnConstraints(probabilities_channel,fractional_counts_channel,p
   #raw_input()
   print 'we are replacing channel probs'
   assignProbsMatrix(new_probabilities,probabilities_channel,parameter_to_index)
-
+  '''
+  print 'the probabilities after em step are '
+  for i in range(0,p.shape[0]):
+    #print ' '.join([item[:3] for item in map(str,p[i])])
+    numpy.set_printoptions(precision=3)
+    #max = numpy.max(p,)
+    print p[i]
+    print 'max for letter ',chr(i+65),' is ',numpy.max(p[i])
+  raw_input()
+  for i in range(0,p.shape[0]):
+    print 'max for letter ',chr(i+65),' is ',numpy.max(p[i])
+  raw_input()
+  '''
 def projectedGradientDescentWithArmijoRuleMatrix(p,expected_counts,num_pgd_iterations,eta,lower_bound,armijo_beta,armijo_sigma,alpha,beta,num_cipher_letters) :
   current_point = array(p)
   #print 'on entering, the current point is ',

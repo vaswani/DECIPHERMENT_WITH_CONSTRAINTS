@@ -114,11 +114,11 @@ def main() :
   print 'eta is ',eta
   raw_input()
   '''
-  gold_cipher = emMethods.readCipherFile('cipher.gold.noq')
+  gold_cipher = emMethods.readCipherFile('cipher.gold.wiki.64.noq')
   print gold_cipher
   #dictionary = emMethods.createDictionary('complete.dict.new-formatted')#.small')
   #word_lines= emMethods.readWordLines('test.words.new-formatted')
-  cipher_letter_dict = emMethods.getUniqCipherLetters('cipher.data.noq')
+  cipher_letter_dict = emMethods.getUniqCipherLetters('cipher.data.wiki.64.noq')
   del cipher_letter_dict['_']
   #word_list_five = emMethods.readWordList('TEXT.3.linear')
   #plaintext = map(chr, range(97, 123))
@@ -156,7 +156,7 @@ def main() :
   #sys.exit()
   final_probabilities_channel = copy.deepcopy(free_parameters_channel)
 
-  run_training = r'./carmel  --train-cascade -u -M 0 -m -HJ cipher.data cipher.wfsa cipher.fst'
+  run_training = r'./carmel  --train-cascade -u -M 0 -m -HJ cipher.data.wiki.64 carmel.lm.3gram.words cipher.fst'
 
   #running the EM iterations
   #we are creating the indexes for algencan . Notice that here, the probabilities language is already uniform and therefore none of them will be zero
@@ -190,10 +190,11 @@ def main() :
     noe_command = 'cat tagging.fsa | sed \'s/*e*//g\' > tagging.fsa.noe'
     (status,output) = commands.getstatusoutput(noe_command)
     print 'we wrote the noe fsa'
-    viterbi_command = r'cat cipher.data.quotes | ./carmel  -u  -srbk 1 -QEWI cipher.wfsa.noe cipher.fst > decipherment_output'
+    viterbi_command = r'cat cipher.data.wiki.64.quotes | ./carmel  -u  -srbk 1 -QEWI carmel.lm.3gram.words.noe cipher.fst > decipherment_output'
     (status,output) = commands.getstatusoutput(viterbi_command)
     #tagged_sequence = emMethods.readTaggingOutput('tagging_output')  
     deciphered_sequence = emMethods.readCipherFile('decipherment_output')
+    print 'length of deciphered sequence was ',len(deciphered_sequence)
     accuracy = emMethods.calcAccuracy(gold_cipher,deciphered_sequence)
 
     print 'The accuracy was %s and the objective function value was %s'%(str(accuracy),str(evaluateObjectiveFuncValue(total_corpus_probability,probabilities_language,probabilities_channel,alpha,beta)))
@@ -217,4 +218,5 @@ def main() :
 
 
 if __name__ == "__main__" :
+  #asd
   main()
