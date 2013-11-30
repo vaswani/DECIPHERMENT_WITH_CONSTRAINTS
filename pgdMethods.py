@@ -270,6 +270,9 @@ def pdgRowAndColumnConstraints(probabilities_channel,fractional_counts_channel,p
   current_fractional_counts = fractional_counts_channel
   #first populating the expected counts and probabilities matrix
   #for i,plain_letter in enumerate(probabilities_channel.keys()) :
+  emMethods.dictionaryToArray(expected_counts,current_fractional_counts,parameter_to_index)
+  emMethods.dictionaryToArray(p,probabilities_channel,parameter_to_index)
+  '''
   for i,k in enumerate(range(65, 91)):
     plain_letter = chr(k)
     expected_counts_sum = 0.
@@ -284,7 +287,7 @@ def pdgRowAndColumnConstraints(probabilities_channel,fractional_counts_channel,p
       expected_counts_sum +=  current_fractional_counts[plain_letter][cipher_letter]
     #print 'expected counts sum was ',expected_counts_sum
     #print parameter_to_index
-
+  '''
   #current_eta = eta_0 #/sqrt(num_iterations+1)
   print 'Doing projected gradient descent'
   new_probabilities = projectedGradientDescentWithArmijoRuleMatrix(p = p,expected_counts = expected_counts,num_pgd_iterations = num_pgd_iterations,eta = eta,lower_bound = lower_bound,armijo_beta = armijo_beta,armijo_sigma = armijo_sigma,alpha = alpha,beta = beta,num_cipher_letters = num_cipher_letters)
@@ -398,7 +401,7 @@ def projectedGradientDescentWithArmijoRuleMatrix(p,expected_counts,num_pgd_itera
       break;
   return(current_point)
 
-def evalFunctionMatrix(current_point,expected_counts,alpha,beta,num_cipher_letters):
+def evalFunctionMatrix(current_point,expected_counts,alpha,beta,num_cipher_letters=None):
   #print expected_counts[:,0:num_cipher_letters].shape
   #print current_point[:,0:num_cipher_letters].shape
   #print expected_counts[:,0:num_cipher_letters]
@@ -406,18 +409,22 @@ def evalFunctionMatrix(current_point,expected_counts,alpha,beta,num_cipher_lette
   #raw_input()
   #print 'sum of first term is ',(expected_counts[:,0:num_cipher_letters]*numpy.log(current_point[:,0:num_cipher_letters])).sum()
   #raw_input()
-  func_val = (expected_counts[:,0:num_cipher_letters]*numpy.log(current_point[:,0:num_cipher_letters])).sum()  + (alpha*numpy.exp(-current_point[:,0:num_cipher_letters]/beta)).sum()
+  if num_cipher_letters != None:
+    func_val = (expected_counts[:,0:num_cipher_letters]*numpy.log(current_point[:,0:num_cipher_letters])).sum()  + (alpha*numpy.exp(-current_point[:,0:num_cipher_letters]/beta)).sum()
+    return(-func_val)
+  else :
+    func_val = (expected_counts*numpy.log(current_point)).sum()  + (alpha*numpy.exp(-current_point/beta)).sum()
   return(-func_val)
 
-def evalGradientMatrix(current_point,expected_counts,alpha,beta,num_cipher_letters) :
+
+
+
+def evalGradientMatrix(current_point,expected_counts,alpha,beta,num_cipher_letters=None) :
 
   gradient = zeros(current_point.shape)
-  '''
-  print 'num cipher letters are ',num_cipher_letters
-  print 'first part of gradient is ',
-  print expected_counts[:,0:num_cipher_letters]/current_point[:,0:num_cipher_letters]
-  raw_input()
-  '''
-  gradient[:,0:num_cipher_letters] = expected_counts[:,0:num_cipher_letters]/current_point[:,0:num_cipher_letters] - alpha*numpy.exp(-current_point[:,0:num_cipher_letters]/beta)/beta
-  return(-gradient)
-
+  if num_cipher_letters != None :
+    gradient[:,0:num_cipher_letters] = expected_counts[:,0:num_cipher_letters]/current_point[:,0:num_cipher_letters] - alpha*numpy.exp(-current_point[:,0:num_cipher_letters]/beta)/beta
+    return(-gradient)
+  else :
+    gradient = expected_counts/current_point - alpha*numpy.exp(-current_point/beta)/beta
+    return(-gradient)

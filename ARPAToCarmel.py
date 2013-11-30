@@ -34,6 +34,7 @@ def main():
   ngrams_p = []
   ngrams_bow = []
   ngrams_f = []
+  # lambda function for creating defaultdicts of a specified size
   g = lambda a:defaultdict(float) if a ==1 else defaultdict(lambda :g(a-1))
   for i in range(1,order+1) :
     print 'i is '
@@ -51,10 +52,19 @@ def main():
   #raw_input()
   #convertToProbabilities(one_grams_f,one_grams_bow,one_grams_p,two_grams_f,two_grams_bow,two_grams_p,\
   #    three_grams_f,three_grams_bow,three_grams_p)
-  writeFSA(carmel_file,ngrams_f,ngrams_bow,order)
+  all_letters = []
+  for k in range(65, 91):
+    plain_letter = chr(k)
+    all_letters.append(plain_letter)
+  all_letters.append('_')
+  print 'all letters is '
+  print all_letters
+  raw_input()
+
+  writeFSA(carmel_file,ngrams_f,ngrams_bow,order,all_letters)
   ##a (aq *e* "q" 0.000426774195215!))
 
-def writeFSA(carmel_file,ngrams_f,ngrams_bow,order):
+def writeFSA(carmel_file,ngrams_f,ngrams_bow,order,all_letters):
   output_file = open(carmel_file,'w')
   output_file.write("END\n")
   #for next_letter in two_grams_f['<s>']:
