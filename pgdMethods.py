@@ -3,6 +3,7 @@ import numpy
 from emUtil import *
 import math
 from dstoc import *
+import emMethodsGeneralNoPrint as emMethods
 
 def approximateProjectOntoSimplex(v) :
   array_size = v.size
@@ -263,16 +264,15 @@ def pdgOnlyRowConstraints(probabilities_channel,fractional_counts_channel,parame
     print 'we are replacing channel probs'
     assignProbs(new_probabilities,probabilities_channel[current_optimization_tag],parameter_to_index[current_optimization_tag])
 
-def pdgRowAndColumnConstraints(probabilities_channel,fractional_counts_channel,parameter_to_index,num_pgd_iterations,alpha,beta,eta,lower_bound,armijo_beta,armijo_sigma,num_plain_letters,num_cipher_letters):
-  
+def pdgRowAndColumnConstraints(probabilities_channel,parameter_to_index,num_pgd_iterations,alpha,beta,eta,lower_bound,armijo_beta,armijo_sigma,num_plain_letters,num_cipher_letters,expected_counts):
   p = zeros(shape=(num_plain_letters,num_plain_letters))
-  expected_counts = zeros(shape=(num_plain_letters,num_plain_letters))
-  current_fractional_counts = fractional_counts_channel
+  emMethods.dictionaryToArray(p,probabilities_channel,parameter_to_index)
+  '''
+  #expected_counts = zeros(shape=(num_plain_letters,num_plain_letters))
+  #current_fractional_counts = fractional_counts_channel
   #first populating the expected counts and probabilities matrix
   #for i,plain_letter in enumerate(probabilities_channel.keys()) :
   emMethods.dictionaryToArray(expected_counts,current_fractional_counts,parameter_to_index)
-  emMethods.dictionaryToArray(p,probabilities_channel,parameter_to_index)
-  '''
   for i,k in enumerate(range(65, 91)):
     plain_letter = chr(k)
     expected_counts_sum = 0.
@@ -417,7 +417,24 @@ def evalFunctionMatrix(current_point,expected_counts,alpha,beta,num_cipher_lette
   return(-func_val)
 
 
-
+#move in the direction of the nce gradient
+def nceUpdate(learning_rate,gradient_num,probabilities_channel,parameter_to_index,num_plain_letters):
+  p = zeros(shape=(num_plain_letters,num_plain_letters))
+  emMethods.dictionaryToArray(p,probabilities_channel,parameter_to_index)
+  #print 'gradient num is ',gradient_num
+  #print 'p is ',p
+  gradient = gradient_num/p
+  new_point = numpy.array(p)
+  new_point += learning_rate*gradient
+  new_feasible_point,blah = dykstra(new_point,10E-6)
+  new_feasible_point = array(new_feasible_point)
+  #print 'new feasible point is ',new_feasible_point 
+  #print 'new feasible point shape is ',new_feasible_point.shape
+  #add epsilon to new feasible point and then renormalize
+  #new_feasible_point += 10E-7
+  return new_feasible_point,p,gradient
+  #assignProbsMatrix(new_feasible_point,probabilities_channel,parameter_to_index)
+  #print 'new probabilities channel is ',probabilities_channel
 
 def evalGradientMatrix(current_point,expected_counts,alpha,beta,num_cipher_letters=None) :
 

@@ -17,6 +17,8 @@ from optparse import OptionParser
 from emUtil import *
 from pgdMethods import *
 from collections import defaultdict
+import numpy as np
+from munkres import Munkres
 
 
 probability_re = re.compile(r'Corpus probability=(.*) per-symbol')
@@ -39,7 +41,7 @@ current_optimization_params = '' #this will hold the parameters that are current
 #initializing the parameter vectors. Here, each parameters is given a number which is the index in the parameter vector that algencan optimizes. The constraints are also given a number . We need these constraint numbers for algencan
 #the new technique here does the optimization for each constraint separately. Therefore,it makes sense to prepare these in advance and then send them off to algencan when they are needed
 #here, we will create the indexing of the parameters needed by algencan so that we can scale it. Instead of throwing the entire problem to algencan, we will #also, I will call this just once because the only code that is affected by being called in different places is the one that checks if the probability is zero. Since we will not make any probabilities zero in algencan, we just need to call this once
-def createParametersForScaling(probabilities,parameter_to_index) :
+def createParametersForScaling(probabilities,parameter_to_index,index_to_parameter) :
   #first make a list of all the parametersa
   #constraint_parameters.clear()
   #so, I have to take the current probabilities and then create the constraint parameters and the initial parameters
@@ -48,11 +50,14 @@ def createParametersForScaling(probabilities,parameter_to_index) :
   for k in range(65, 91):
     plain_letter = chr(k)
     rowwise_parameter_to_index = {}
+    rowwise_index_to_parameter = {}
     paramteter_counter = 0
     for cipher_letter in probabilities[plain_letter]:
       rowwise_parameter_to_index[cipher_letter] = paramteter_counter
+      rowwise_index_to_parameter[paramteter_counter] = cipher_letter 
       paramteter_counter += 1
     parameter_to_index[plain_letter] = rowwise_parameter_to_index
+    index_to_parameter[plain_letter] = rowwise_index_to_parameter
   #print 'after indexing, the paramter to index is '
   #print parameter_to_index
 
@@ -85,7 +90,7 @@ def main() :
   parser.add_option("--i", action="store_true", dest="identity_init",default=False)
   parser.add_option("--hpc", action="store_true", dest="hpc",default=False)
   parser.add_option("--full_fst", action="store_true", dest="full_fst",default=False)
-
+  parser.add_option("--posterior_decoding", action="store_true", dest="posterior_decoding",default=False)
   
   (options, args) = parser.parse_args()
 
@@ -117,6 +122,7 @@ def main() :
   hpc = options.hpc
   std_mult = options.std_mult
   full_fst = options.full_fst
+  posterior_decoding_flag = options.posterior_decoding
 
   #setting up paramters
   fractional_counts_language = {}
@@ -146,6 +152,8 @@ def main() :
   raw_input()
   '''
   gold_cipher = emMethods.readCipherFile(cipher_gold_file)
+  ciphertext = emMethods.readCipherFile(cipher_noq_file)
+  ciphertext_with_spaces  = open(cipher_noq_file).readline().strip().split()
   print gold_cipher
   #dictionary = emMethods.createDictionary('complete.dict.new-formatted')#.small')
   #word_lines= emMethods.readWordLines('test.words.new-formatted')
@@ -161,10 +169,12 @@ def main() :
   del cipher_letter_dict['_']
   #word_list_five = emMethods.readWordList('TEXT.3.linear')
   #plaintext = map(chr, range(97, 123))
-  plaintext = []
+  plaintext_letters = []
+  ciphertext_letters = []
   for k in range(65, 91):
-    plaintext.append(chr(k))
-  print plaintext
+    plaintext_letters.append(chr(k))
+    ciphertext_letters.append(chr(k).lower())
+  print plaintext_letters
   print 'the number of unique cipher letter is %d'%len(cipher_letter_dict.keys())
   print cipher_letter_dict
   num_cipher_letters = len(cipher_letter_dict.keys()) 
@@ -180,10 +190,10 @@ def main() :
     #print 'created parameters for a line'
     #(language_parameters,channel_parameters) = emMethods.getFreeParametersBigram(line,dictionary,free_parameters_language,free_parameters_channel)
   if full_fst == True:
-    emMethods.getFreeCipherParametersChannel(plaintext,free_parameters_channel)
+    emMethods.getFreeCipherParametersChannel(plaintext_letters,free_parameters_channel)
     num_cipher_letters = 26
   else :
-    emMethods.getFreeCipherParametersChannel(plaintext,free_parameters_channel,cipher_letter_dict = cipher_letter_dict)
+    emMethods.getFreeCipherParametersChannel(plaintext_letters,free_parameters_channel,cipher_letter_dict = cipher_letter_dict)
   temp = {'_':0.0}
   free_parameters_channel['_'] = temp
   #now, we will build all the lattices, and create a special start node and end node for every sentence
@@ -215,13 +225,16 @@ def main() :
   run_training = ''
   if hpc == True:
     run_training = "/home/nlg-05/vaswani/graehl/carmel/bin/linux64/carmel --train-cascade -u -M 0 -m -HJ %s %s cipher.fst"%(cipher_data_file,lm)
+    run_posterior_decoding = "/home/nlg-05/vaswani/graehl/carmel/bin/linux64/carmel --train-cascade -u -M 0 -m -HJ %s %s posterior_decode.fst"%(cipher_data_file,lm)
   else :
     run_training = "/Users/avaswani/graehl/carmel/bin/macosx/carmel --train-cascade -u -M 0 -m -HJ %s %s cipher.fst"%(cipher_data_file,lm)
+    run_posterior_decoding = "/Users/avaswani/graehl/carmel/bin/macosx/carmel --train-cascade -u -M 0 -m -HJ %s %s posterior_decode.fst"%(cipher_data_file,lm)
 
 
   #running the EM iterations
   #we are creating the indexes for algencan . Notice that here, the probabilities language is already uniform and therefore none of them will be zero
-  createParametersForScaling(probabilities_channel,parameter_to_index)
+  index_to_parameter = {}
+  createParametersForScaling(probabilities_channel,parameter_to_index,index_to_parameter)
   start_time = time.clock()
   print 'start time was ',start_time
   #fractional_counts_dump_file = open('fractional.params','w')
@@ -270,11 +283,54 @@ def main() :
 
     print 'The accuracy was %s and the objective function value was %s'%(str(accuracy),str(evaluateObjectiveFuncValue(total_corpus_probability,probabilities_language,probabilities_channel,current_alpha,beta)))
       
-    #pdgOnlyRowConstraints(probabilities_channel,fractional_counts_channel,parameter_to_index,num_pgd_iterations,current_alpha,beta,eta,lower_bound,armijo_beta,armijo_sigma,slack_option)
-    pdgRowAndColumnConstraints(probabilities_channel,fractional_counts_channel,parameter_to_index,num_pgd_iterations,current_alpha,beta,eta,lower_bound,armijo_beta,armijo_sigma,num_plain_letters,num_cipher_letters)
+    expected_counts = zeros(shape=(num_plain_letters,num_plain_letters))
+    #current_fractional_counts = fractional_counts_channel
+    #first populating the expected counts and probabilities matrix
+    #for i,plain_letter in enumerate(probabilities_channel.keys()) :
+    emMethods.dictionaryToArray(expected_counts,fractional_counts_channel,parameter_to_index)
+    '''
+    print 'Doing posterior decoding'
+    # decode
+    m = Munkres()
+    #J is not a matrix. its pairs of coordinates
+    J = m.compute(-expected_counts)
+    key = dict((index_to_parameter[plaintext_letters[n]][J[n][1]],plaintext_letters[J[n][0]]) for n in range(len(ciphertext_letters)))
+    print 'the key was ',key
+    posterior_decoded_string = []
+    for letter in ciphertext:
+      if letter == '_':
+        posterior_decoded_string.append('_')
+      else :
+        posterior_decoded_string.append(key[letter])
+    posterior_decoded_accuracy = emMethods.calcAccuracy(gold_cipher,posterior_decoded_string)
+    print 'The posterior decoded accuracy was',posterior_decoded_accuracy
+    '''
+    pdgRowAndColumnConstraints(probabilities_channel,parameter_to_index,num_pgd_iterations,current_alpha,beta,eta,lower_bound,armijo_beta,armijo_sigma,num_plain_letters,num_cipher_letters,expected_counts=expected_counts)
 
     #now writing the fsa back again
     emMethods.writeFst('cipher.fst',probabilities_channel)
+  
+    #if the user has asked for posterior decoding, then we must do it
+    if posterior_decoding_flag == True:
+      print 'running command',run_posterior_decoding
+      emMethods.writePosteriorDecodingFST(ciphertext_with_spaces,probabilities_channel,'posterior_decode.fst')
+      (status,output) = commands.getstatusoutput(run_posterior_decoding)  
+      print 'we just ran posterior decoding'
+      print output
+      print status
+      prob_match = probability_re.search(output)
+      if prob_match == None :
+        print'we should have found a probability in posterior decoding'
+      else :
+        print 'the posterior decoding probability is %s'%prob_match.group(1)
+      temp_corpus_probability = float(prob_match.group(1)[2:len(prob_match.group(1))])
+      total_corpus_probability = 0.693147181 * temp_corpus_probability
+      print 'the posterior decoding probability in base e is',total_corpus_probability
+      print 'Getting the posterior decode'
+      posterior_decode = emMethods.getPosteriorDecode('posterior_decode.fst.trained')
+      print 'the posterior decode was ',posterior_decode
+      posterior_decode_accuracy = emMethods.calcAccuracy(gold_cipher,posterior_decode)
+      print 'The posterior decoded accuracy was ',posterior_decode_accuracy
 
 
     #print 'checking the initial zeros in channel model'
