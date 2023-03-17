@@ -18,7 +18,7 @@ for i in range(0,len(data)) :
 		accuracy = data[i+1]
 		if dict.has_key(alpha) :
 			if dict[alpha].has_key(sigma) :
-				print 'could not have had teh same configuration repeat'
+				print 'could not have had the same configuration repeat'
 			else :
 				#print 'we are adding' 
 				#temp[sigma] = float(accuracy)
